@@ -1,0 +1,60 @@
+#--------------------------------------------------------------------------
+# Cifrado Feistel
+#--------------------------------------------------------------------------
+
+import random
+
+def funcion_feistel(data, key):
+    return (data ^ key) & 0xFFFF  # Retorna un valor de 16 bits
+
+
+def generar_subllaves(num_rondas):
+    subllaves = [random.randint(0, 0xFFFF) for _ in range(num_rondas)]
+    return subllaves
+
+
+def encriptado_feistel(mensaje, num_rondas=4):
+    L = (mensaje >> 16) & 0xFFFF
+    R = mensaje & 0xFFFF
+
+    subllaves = generar_subllaves(num_rondas)
+
+    # Rondas de Feistel
+    for i in range(num_rondas):
+        # Guardar el valor de la derecha actual
+        Ry = L ^ funcion_feistel(R, subllaves[i])
+        L = R
+        R = Ry
+
+    # Combinar los bloques resultantes en un solo valor cifrado
+    cifrado = (L << 16) | R
+    return cifrado, subllaves
+
+
+def descifrado_feistel(cifrado, subllaves):
+    num_rondas = len(subllaves)
+
+    L = (cifrado >> 16) & 0xFFFF
+    R = cifrado & 0xFFFF
+
+    # Rondas de Feistel (en orden inverso)
+    for i in range(num_rondas - 1, -1, -1):
+        Ly = R ^ funcion_feistel(L, subllaves[i])
+        R = L
+        L = Ly
+
+    # Combinar los bloques resultantes en un solo valor descifrado
+    mensaje = (L << 16) | R
+    return mensaje
+
+
+mensaje_original = 305419896
+print(f"Mensaje original: {mensaje_original}")
+
+
+mensaje_cifrado, subclaves = encriptado_feistel(mensaje_original, num_rondas=4)
+print(f"Mensaje cifrado: {mensaje_cifrado}")
+
+
+mensaje_descifrado = descifrado_feistel(mensaje_cifrado, subclaves)
+print(f"Mensaje descifrado: {mensaje_descifrado}")
