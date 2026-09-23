@@ -1,0 +1,129 @@
+#--------------------------------------------------------------------------
+# Cifrado DES modificado
+# l(m)=16
+# l(k)=16
+# 4 rondas
+# 4 subllaves
+# l(S_k)=12
+#--------------------------------------------------------------------------
+
+def rotar_izquierda(bits, n):
+    # Rota los bits hacia la izquierda n posiciones
+    return ((bits << n) & 0xFFFF) | (bits >> (16 - n))
+
+def eliminar_bits(bits, posiciones_a_eliminar):
+    # Elimina bits en las posiciones dadas partiendo desde el bit más significativo
+    bits_filtrados = 0
+    for i in range(16):
+        if i not in posiciones_a_eliminar:
+            bits_filtrados = (bits_filtrados << 1) | ((bits >> (15 - i)) & 1)
+    return bits_filtrados
+
+def generar_subllaves(llave):
+    # Genera las 4 subllaves de 12 bits a partir de la llave de 16 bits
+    subllaves = []
+    for i in range(4):
+        # Dividimos la llave en dos bloques de 8 bits cada uno
+        L = (llave >> 8) & 0xFF
+        R = llave & 0xFF
+
+        # Rotar 2 bits a la izquierda ambos bloques
+        L = rotar_izquierda(L, 2)
+        R = rotar_izquierda(R, 2)
+
+        # Concatenamos ambos bloques
+        llave_concatenada = (L << 8) | R
+
+        # Eliminamos los bits en las posiciones 3, 7, 11, 15
+        subllave = eliminar_bits(llave_concatenada, [2, 6, 10, 14])
+        subllaves.append(subllave)
+
+        # Rota la llave completa 2 bits para la siguiente ronda
+        llave = rotar_izquierda(llave, 2)
+
+    return subllaves
+
+def expandir_permutar(bloque):
+    # Expande el bloque de 8 bits a 12 bits y aplica una permutación
+    # Expansión simple duplicando algunos bits y permutando
+    return ((bloque & 0xF0) << 4) | ((bloque & 0x0F) << 4) | (bloque & 0xF0)
+
+def s_box(bloque, s_box):
+    # Aplica una S-Box a un bloque de 6 bits y lo reduce a 4 bits
+    # Asumimos que s_box es un diccionario que define las transiciones
+    return s_box[bloque]
+
+def funcion_feistel(bloque, subllave, sbox1, sbox2):
+    # Aplica la función Feistel usando S-Boxes y subllaves
+    # Expande y permuta el bloque de 8 bits a 12 bits
+    bloque_exp = expandir_permutar(bloque)
+
+    # Aplica XOR con la subllave
+    bloque_xor = bloque_exp ^ subllave
+
+    # Divide el bloque en dos mitades de 6 bits cada una
+    L = (bloque_xor >> 6) & 0x3F
+    R = bloque_xor & 0x3F
+
+    # Aplica las S-Boxes
+    L_reducida = s_box(L, sbox2)
+    R_reducida = s_box(R, sbox1)
+
+    # Concatenamos el resultado y devolvemos un bloque de 8 bits
+    return (L_reducida << 4) | R_reducida
+
+def encriptar_des(mensaje, llave, sbox1, sbox2):
+    # Encripta un mensaje de 16 bits usando DES modificado de 4 rondas
+    subllaves = generar_subllaves(llave)
+
+    # Dividimos el mensaje en dos bloques de 8 bits cada uno
+    L = (mensaje >> 8) & 0xFF
+    R = mensaje & 0xFF
+
+    # Aplicamos 4 rondas
+    for i in range(4):
+        Ry = L ^ funcion_feistel(R, subllaves[i], sbox1, sbox2)
+        L = R
+        R = Ry
+
+    # Combinamos los bloques L y R para formar el cifrado
+    return (L << 8) | R
+
+def desencriptar_des(mensaje_cifrado, llave, sbox1, sbox2):
+    # Desencripta un mensaje cifrado de 16 bits usando DES modificado de 4 rondas
+    subllaves = generar_subllaves(llave)
+
+    # Dividimos el mensaje cifrado en dos bloques de 8 bits cada uno
+    L = (mensaje_cifrado >> 8) & 0xFF
+    R = mensaje_cifrado & 0xFF
+
+    # Aplicamos 4 rondas inversas
+    for i in range(3, -1, -1):
+        Ly = R ^ funcion_feistel(L, subllaves[i], sbox1, sbox2)
+        R = L
+        L = Ly
+
+    # Combinamos los bloques L y R para obtener el mensaje original
+    return (L << 8) | R
+
+def mostrar_mensaje_encriptado(mensaje_cifrado):
+    print(f"Mensaje cifrado en binario: {bin(mensaje_cifrado)[2:].zfill(16)}")
+    print(f"Mensaje cifrado en hexadecimal: {hex(mensaje_cifrado)[2:].upper().zfill(4)}")
+
+
+mensaje = 0b1100110010101010
+llave = 0b1010101010101010
+
+# S-Boxes ejemplo (pueden ser definidas de diferentes formas)
+sbox1 = {i: (i ^ 0xA) & 0xF for i in range(64)}  # S-Box 1
+sbox2 = {i: (i ^ 0x5) & 0xF for i in range(64)}  # S-Box 2
+
+# Encriptar el mensaje
+mensaje_cifrado = encriptar_des(mensaje, llave, sbox1, sbox2)
+
+# Mostrar el mensaje cifrado
+mostrar_mensaje_encriptado(mensaje_cifrado)
+
+# Desencriptar el mensaje cifrado
+mensaje_descifrado = desencriptar_des(mensaje_cifrado, llave, sbox1, sbox2)
+print(f"Mensaje descifrado: {bin(mensaje_descifrado)[2:].zfill(16)}")
