@@ -1,0 +1,30 @@
+#--------------------------------------------------------------------------
+# Intercambio Diffie-Helman
+#--------------------------------------------------------------------------
+import random
+
+def diffie_hellman(prime, base):
+
+    # Paso 1: Generar claves privadas aleatorias
+    private_a = random.randint(2, prime - 2)  # Clave privada de Alice
+    private_b = random.randint(2, prime - 2)  # Clave privada de Bob
+
+    # Paso 2: Calcular claves públicas
+    public_a = pow(base, private_a, prime)  # Clave pública de Alice: g^a mod p
+    public_b = pow(base, private_b, prime)  # Clave pública de Bob: g^b mod p
+
+    # Paso 3: Intercambio y cálculo de la clave compartida
+    shared_key_a = pow(public_b, private_a, prime)  # Bob's clave pública elevada a la privada de Alice
+    shared_key_b = pow(public_a, private_b, prime)  # Alice's clave pública elevada a la privada de Bob
+
+    assert shared_key_a == shared_key_b, "Las claves compartidas no coinciden"
+
+    return shared_key_a
+
+# Parámetros públicos (en un entorno real, p y g deben ser mucho mayores)
+prime = 23  # Número primo
+base = 5    # Generador
+
+# Ejecutar el intercambio Diffie-Hellman
+shared_key = diffie_hellman(prime, base)
+print(f"Clave compartida calculada: {shared_key}")
