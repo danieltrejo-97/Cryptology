@@ -1,0 +1,91 @@
+#--------------------------------------------------------------------------
+# MD4 modificado
+#--------------------------------------------------------------------------
+
+
+import struct
+import math
+
+def to_binary_fraction(value, bits=16):
+    fractional_part = value - math.floor(value)
+    binary_fraction = 0
+    for i in range(bits):
+        fractional_part *= 2
+        if fractional_part >= 1:
+            binary_fraction |= (1 << (bits - i - 1))
+            fractional_part -= 1
+    return binary_fraction
+
+def md4_modified(message):
+    # Constantes modificadas
+    E_CONST = to_binary_fraction(math.e, 16)  # 16 bits de e
+    PHI_CONST = to_binary_fraction((1 + math.sqrt(5)) / 2, 16)  # 16 bits de la razón áurea
+
+    # Funciones auxiliares
+    def F(x, y, z):
+        return (x & y) | (~x & z)
+
+    def G(x, y, z):
+        return (x & y) | (x & z) | (y & z)
+
+    def H(x, y, z):
+        return x ^ y ^ z
+
+    def left_rotate(value, shift):
+        # Asegurarse de que el desplazamiento esté en el rango [0, 15]
+        shift %= 16
+        return ((value << shift) & 0xFFFF) | (value >> (16 - shift))
+
+    # Padding del mensaje
+    original_length = len(message) * 8
+    message += b"\x80"
+    while (len(message) % 8) != 0:
+        message += b"\x00"
+
+    # Añadir la longitud original del mensaje en bits al final
+    message += struct.pack("<Q", original_length)
+
+    # Inicialización de variables
+    A = 0x6745
+    B = 0xEFCD
+    C = 0x98BA
+    D = 0x1032
+
+    # Procesamiento de bloques de 64 bits (4 palabras de 16 bits)
+    for i in range(0, len(message), 8):
+        X = struct.unpack("<4H", message[i:i + 8])
+
+        # Guardar valores iniciales
+        AA, BB, CC, DD = A, B, C, D
+
+        # Ronda 1
+        A = left_rotate((A + F(B, C, D) + X[0]) & 0xFFFF, 3)
+        D = left_rotate((D + F(A, B, C) + X[1]) & 0xFFFF, 7)
+        C = left_rotate((C + F(D, A, B) + X[2]) & 0xFFFF, 11)
+        B = left_rotate((B + F(C, D, A) + X[3]) & 0xFFFF, 19)
+
+        # Ronda 2
+        A = left_rotate((A + G(B, C, D) + X[0] + E_CONST) & 0xFFFF, 3)
+        D = left_rotate((D + G(A, B, C) + X[1] + E_CONST) & 0xFFFF, 5)
+        C = left_rotate((C + G(D, A, B) + X[2] + E_CONST) & 0xFFFF, 9)
+        B = left_rotate((B + G(C, D, A) + X[3] + E_CONST) & 0xFFFF, 13)
+
+        # Ronda 3
+        A = left_rotate((A + H(B, C, D) + X[0] + PHI_CONST) & 0xFFFF, 3)
+        D = left_rotate((D + H(A, B, C) + X[1] + PHI_CONST) & 0xFFFF, 9)
+        C = left_rotate((C + H(D, A, B) + X[2] + PHI_CONST) & 0xFFFF, 11)
+        B = left_rotate((B + H(C, D, A) + X[3] + PHI_CONST) & 0xFFFF, 15)
+
+        # Actualizar valores
+        A = (A + AA) & 0xFFFF
+        B = (B + BB) & 0xFFFF
+        C = (C + CC) & 0xFFFF
+        D = (D + DD) & 0xFFFF
+
+    # Concatenar los resultados finales para formar un hash de 64 bits
+    return struct.pack("<4H", A, B, C, D).hex()
+
+# Ejemplo de uso
+message = b"Mensaje de prueba"
+hash_result = md4_modified(message)
+print("Hash modificado (64 bits):", hash_result)
